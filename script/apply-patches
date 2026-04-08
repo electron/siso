@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SUBMODULE="$ROOT/vendor/build"
+PATCHES="$ROOT/patches"
+
+if [ ! -f "$SUBMODULE/siso/go.mod" ]; then
+  echo "error: submodule not initialized. Run: git submodule update --init" >&2
+  exit 1
+fi
+
+# Reset to the pinned commit so re-running is idempotent.
+pinned="$(git -C "$ROOT" ls-files -s vendor/build | awk '{print $2}')"
+git -C "$SUBMODULE" checkout --detach "$pinned"
+
+shopt -s nullglob
+patches=("$PATCHES"/*.patch)
+if [ ${#patches[@]} -eq 0 ]; then
+  echo "no patches to apply"
+  exit 0
+fi
+
+git -C "$SUBMODULE" \
+  -c user.name="electron-siso-patcher" \
+  -c user.email="siso@electronjs.org" \
+  am --3way "${patches[@]}"
+
+echo "applied ${#patches[@]} patch(es)"

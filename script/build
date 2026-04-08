@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SISO_SRC="$ROOT/vendor/build/siso"
+OUT="$ROOT/out"
+
+GOOS="${GOOS:-windows}"
+GOARCH="${GOARCH:-amd64}"
+
+mkdir -p "$OUT"
+ext=""
+[ "$GOOS" = "windows" ] && ext=".exe"
+
+echo "building siso for $GOOS/$GOARCH"
+(cd "$SISO_SRC" && CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -o "$OUT/siso-$GOOS-$GOARCH$ext" .)
+echo "wrote $OUT/siso-$GOOS-$GOARCH$ext"
