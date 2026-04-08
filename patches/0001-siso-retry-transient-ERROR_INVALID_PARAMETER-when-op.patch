@@ -1,6 +1,6 @@
-From d3ba12e51d0854a167cb534cb6d4e981732b94f5 Mon Sep 17 00:00:00 2001
+From 6459c2dbdfb40130943ed3e9b4645ce2a8d559a8 Mon Sep 17 00:00:00 2001
 From: Samuel Attard <sam@electronjs.org>
-Date: Wed, 8 Apr 2026 15:24:18 -0700
+Date: Wed, 8 Apr 2026 16:43:55 -0700
 Subject: [PATCH] siso: retry transient ERROR_INVALID_PARAMETER when opening
  ninja files on Windows
 
@@ -13,13 +13,15 @@ under this concurrent open burst. There is currently no retry, so a
 single transient failure aborts the entire manifest load.
 
 Wrap the two os.Open calls in readFile in a small Windows-only retry
-for ERROR_INVALID_PARAMETER (5 attempts, 5-80ms backoff, warning
-logged on each retry). Other platforms keep the direct os.Open path.
+for ERROR_INVALID_PARAMETER (5 attempts, 5-80ms backoff). Each retry
+is logged via clog.Warningf and also written to stderr so it is
+visible in CI step output where glog warnings are file-only by
+default. Other platforms keep the direct os.Open path.
 ---
  siso/toolsupport/ninjautil/file_parser.go     |  5 +-
  siso/toolsupport/ninjautil/openfile_other.go  | 18 +++++++
- .../toolsupport/ninjautil/openfile_windows.go | 48 +++++++++++++++++++
- 3 files changed, 68 insertions(+), 3 deletions(-)
+ .../toolsupport/ninjautil/openfile_windows.go | 50 +++++++++++++++++++
+ 3 files changed, 70 insertions(+), 3 deletions(-)
  create mode 100644 siso/toolsupport/ninjautil/openfile_other.go
  create mode 100644 siso/toolsupport/ninjautil/openfile_windows.go
 
@@ -79,10 +81,10 @@ index 00000000..9fca6901
 +}
 diff --git a/siso/toolsupport/ninjautil/openfile_windows.go b/siso/toolsupport/ninjautil/openfile_windows.go
 new file mode 100644
-index 00000000..ce8637b2
+index 00000000..f9d8e9dc
 --- /dev/null
 +++ b/siso/toolsupport/ninjautil/openfile_windows.go
-@@ -0,0 +1,48 @@
+@@ -0,0 +1,50 @@
 +// Copyright 2026 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -94,6 +96,7 @@ index 00000000..ce8637b2
 +import (
 +	"context"
 +	"errors"
++	"fmt"
 +	"os"
 +	"time"
 +
@@ -123,6 +126,7 @@ index 00000000..ce8637b2
 +			return nil, err
 +		}
 +		clog.Warningf(ctx, "open %s: %v; retrying (%d/%d) after %s", fname, err, i+1, maxAttempts, delay)
++		fmt.Fprintf(os.Stderr, "siso: open %s: %v; retrying (%d/%d) after %s\n", fname, err, i+1, maxAttempts, delay)
 +		select {
 +		case <-time.After(delay):
 +		case <-ctx.Done():
